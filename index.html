@@ -1,0 +1,541 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Room 34 Seating Plan Builder</title>
+<style>
+  :root{
+    --blue:#CFE2F3;
+    --ink:#12202e;
+    --line:#c9d6e4;
+    --accent:#2f6fb0;
+    --accent-soft:#e8f1fb;
+    --bg:#eef3f9;
+    --card:#ffffff;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{
+    font-family:Arial,Helvetica,sans-serif;
+    color:var(--ink);
+    background:var(--bg);
+  }
+  /* ---------- toolbar ---------- */
+  .toolbar{
+    position:sticky;top:0;z-index:20;
+    display:flex;flex-wrap:wrap;gap:12px 18px;align-items:center;
+    padding:12px 20px;
+    background:#ffffffee;
+    backdrop-filter:blur(6px);
+    border-bottom:1px solid var(--line);
+  }
+  .toolbar h1{font-size:16px;margin:0;font-weight:700;letter-spacing:.2px}
+  .toolbar .spacer{flex:1}
+  .toolbar label{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:700;color:#43566b}
+  .toolbar input[type=text]{
+    font:inherit;font-size:14px;padding:8px 10px;border:1px solid var(--line);
+    border-radius:8px;background:#fff;min-width:150px;
+  }
+  .toolbar input[type=text]:focus{outline:2px solid var(--accent);outline-offset:1px;border-color:var(--accent)}
+  button{
+    font:inherit;font-size:13px;font-weight:700;cursor:pointer;
+    padding:9px 14px;border-radius:8px;border:1px solid var(--line);
+    background:#fff;color:var(--ink);
+  }
+  button:hover{background:var(--accent-soft);border-color:#a9c6e6}
+  button.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+  button.primary:hover{background:#275c93}
+
+  /* ---------- layout ---------- */
+  main{
+    display:grid;
+    grid-template-columns:minmax(320px,400px) minmax(0,1fr);
+    gap:22px;
+    align-items:start;
+    padding:20px;
+    max-width:1500px;
+    margin:0 auto;
+  }
+  .hint{font-size:12px;color:#5c6f83;margin:0 0 10px}
+  .fields{display:flex;flex-direction:column;gap:14px}
+  fieldset{
+    border:1px solid var(--line);border-radius:12px;background:var(--card);
+    padding:12px 14px 14px;margin:0;
+  }
+  legend{
+    font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;
+    color:var(--accent);padding:0 6px;
+  }
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:8px 10px}
+  .field{display:flex;flex-direction:column;gap:3px}
+  .field span{font-size:11px;font-weight:700;color:#61748a}
+  .field input{
+    font:inherit;font-size:14px;padding:7px 9px;border:1px solid var(--line);
+    border-radius:7px;background:#fbfdff;width:100%;
+  }
+  .field input:focus{outline:2px solid var(--accent);outline-offset:1px;border-color:var(--accent);background:#fff}
+
+  /* ---------- CSV import card ---------- */
+  .card{border:1px solid var(--line);border-radius:12px;background:var(--card);padding:12px 14px 14px}
+  .import h3{margin:0 0 6px;font-size:12px;color:var(--accent);text-transform:uppercase;letter-spacing:.06em}
+  .import-row{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:8px 0}
+  .import-row input[type=file]{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
+  .filebtn{display:inline-block;font-size:13px;font-weight:700;cursor:pointer;padding:8px 12px;border-radius:8px;border:1px solid var(--accent);background:var(--accent);color:#fff}
+  .filebtn:hover{background:#275c93;border-color:#275c93}
+  .import select{font:inherit;font-size:12.5px;padding:8px;border:1px solid var(--line);border-radius:8px;background:#fff;color:var(--ink)}
+  .hint.small{font-size:11px;display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;margin:0}
+  .hint.small a{color:var(--accent);font-weight:700;text-decoration:none}
+  .hint.small a:hover{text-decoration:underline}
+  .toast{
+    position:fixed;left:50%;bottom:22px;transform:translateX(-50%);
+    background:#12202e;color:#fff;font-size:13px;font-weight:700;
+    padding:10px 16px;border-radius:10px;opacity:0;pointer-events:none;transition:opacity .2s;
+    z-index:50;box-shadow:0 8px 24px rgba(0,0,0,.25);
+  }
+  .toast.show{opacity:1}
+
+  /* ---------- preview ---------- */
+  .preview{position:sticky;top:74px}
+  .preview h2{font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:#5c6f83;margin:0 0 8px}
+  .stage{
+    width:100%;aspect-ratio:720/540;background:#fff;
+    border:1px solid var(--line);border-radius:12px;overflow:hidden;
+    box-shadow:0 10px 30px rgba(20,40,70,.10);
+  }
+  .stage svg{width:100%;height:100%;display:block}
+  .stage text{font-family:Arial,Helvetica,sans-serif}
+
+  @media (max-width:900px){
+    main{grid-template-columns:1fr}
+    .preview{position:static;order:-1}
+  }
+
+  /* ---------- print ---------- */
+  @page{size:landscape;margin:8mm}
+  @media print{
+    body{background:#fff}
+    .toolbar,.fields,.preview h2,.toast{display:none!important}
+    main{display:block;padding:0;margin:0;max-width:none}
+    .stage{border:none;box-shadow:none;border-radius:0;width:100%;aspect-ratio:720/540}
+  }
+</style>
+</head>
+<body>
+
+<header class="toolbar">
+  <h1>Room 34 &middot; Seating Plan</h1>
+  <label>Year group
+    <input id="year" type="text" placeholder="e.g. 9" autocomplete="off" spellcheck="false">
+  </label>
+  <span class="spacer"></span>
+  <button id="print" class="primary" type="button">Print / Save as PDF</button>
+  <button id="reset" type="button">Reset names</button>
+</header>
+
+<main>
+  <section class="fields" id="fields">
+    <div class="import card">
+      <h3>Import class list (CSV)</h3>
+      <p class="hint">Upload a CSV with <b>Name</b> and <b>Surname</b> columns (a header row is optional). Names fill the plan in order.</p>
+      <div class="import-row">
+        <label class="filebtn" for="csv">Choose CSV file&hellip;</label>
+        <input id="csv" type="file" accept=".csv,text/csv,text/plain">
+        <select id="csvMode" title="Where imported names are placed">
+          <option value="both">Fill seats, then Chromebooks</option>
+          <option value="seats">Fill seats only</option>
+          <option value="chromebooks">Fill Chromebooks only</option>
+        </select>
+      </div>
+      <p class="hint small">
+        <span id="csvFileName">No file selected.</span>
+        <a id="sample" href="#" download="class-list-sample.csv">Download sample CSV</a>
+      </p>
+    </div>
+    <p class="hint">Type a name into any box and it appears on the plan instantly. Names are saved in this browser automatically.</p>
+  </section>
+
+  <section class="preview">
+    <h2>Live plan</h2>
+    <div class="stage">
+      <svg id="plan" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 540" preserveAspectRatio="xMidYMid meet"></svg>
+    </div>
+  </section>
+</main>
+
+<div class="toast" id="toast"></div>
+
+<script>
+(function(){
+  "use strict";
+  var svgNS = "http://www.w3.org/2000/svg";
+  var svg = document.getElementById("plan");
+  var LIGHT = "#CFE2F3";
+  var STROKE = 0.9;
+
+  /* ---------- template geometry (from the original PDF, in points; page is 720 x 540) ---------- */
+  var SEATS = [
+    {id:"t1", num:"1", x:16.7,  y:53.2,  w:80.6, h:49.6, area:"Top row"},
+    {id:"t2", num:"2", x:97.3,  y:53.2,  w:80.6, h:49.6, area:"Top row"},
+    {id:"t3", num:"3", x:177.9, y:53.2,  w:80.6, h:49.6, area:"Top row"},
+    {id:"t4", num:"4", x:258.5, y:53.2,  w:80.6, h:49.6, area:"Top row"},
+    {id:"t5", num:"5", x:339.2, y:53.2,  w:80.6, h:49.6, area:"Top row"},
+    {id:"t6", num:"6", x:419.8, y:53.2,  w:80.6, h:49.6, area:"Top row"},
+    {id:"t7", num:"7", x:500.4, y:53.2,  w:80.6, h:49.6, area:"Top row"},
+    {id:"r8",  num:"8",  x:645.0, y:164.4, w:49.6, h:80.6, area:"Right column"},
+    {id:"r9",  num:"9",  x:645.0, y:245.0, w:49.6, h:80.6, area:"Right column"},
+    {id:"r10", num:"10", x:645.0, y:325.6, w:49.6, h:80.6, area:"Right column"},
+    {id:"r11", num:"11", x:645.0, y:406.2, w:49.6, h:80.6, area:"Right column"}
+  ];
+
+  var LT = [];
+  for (var n = 548; n <= 559; n++){
+    LT.push({num:n, label:"LT"+n, top:226.7 + (n-548)*16.8});
+  }
+
+  /* ---------- measurement helper ---------- */
+  var mc = document.createElement("canvas").getContext("2d");
+  function font(px){ return px + "px Arial, Helvetica, sans-serif"; }
+  function wrapText(text, maxW, size){
+    mc.font = font(size);
+    var words = text.split(/\s+/).filter(Boolean), lines = [], cur = "";
+    for (var i=0;i<words.length;i++){
+      var test = cur ? cur + " " + words[i] : words[i];
+      if (!cur || mc.measureText(test).width <= maxW) cur = test;
+      else { lines.push(cur); cur = words[i]; }
+    }
+    if (cur) lines.push(cur);
+    return lines.length ? lines : [text];
+  }
+  function fitText(text, maxW, maxH, maxSize, minSize, singleLine){
+    text = (text||"").trim();
+    if (!text) return null;
+    for (var size = maxSize; size >= minSize; size -= 0.5){
+      mc.font = font(size);
+      var lines = singleLine ? [text] : wrapText(text, maxW, size);
+      var okW = lines.every(function(l){ return mc.measureText(l).width <= maxW + 0.5; });
+      var lh = size * 1.16;
+      var okH = singleLine ? (size <= maxH + 3) : (lines.length * lh <= maxH + 0.5);
+      if (okW && okH) return {size:size, lines:lines};
+    }
+    mc.font = font(minSize);
+    var fallback = singleLine ? [text] : wrapText(text, maxW, minSize);
+    return {size:minSize, lines:fallback};
+  }
+
+  /* ---------- build the SVG template ---------- */
+  function el(name, attrs){
+    var e = document.createElementNS(svgNS, name);
+    for (var k in attrs) e.setAttribute(k, attrs[k]);
+    return e;
+  }
+  function addText(x, y, str, size, weight, anchor){
+    var t = el("text", {x:x, y:y, "font-size":size, fill:"#000"});
+    if (weight) t.setAttribute("font-weight", weight);
+    if (anchor) t.setAttribute("text-anchor", anchor);
+    t.textContent = str;
+    return t;
+  }
+
+  (function buildTemplate(){
+    // white page
+    svg.appendChild(el("rect", {x:0, y:0, width:720, height:540, fill:"#ffffff"}));
+    // room floor
+    svg.appendChild(el("rect", {x:16.7, y:53.2, width:677.9, height:433.6, fill:LIGHT, stroke:"#000", "stroke-width":STROKE}));
+    // seat boxes + furniture boxes
+    var boxes = [];
+    SEATS.forEach(function(s){ boxes.push({x:s.x, y:s.y, w:s.w, h:s.h}); });
+    boxes.push({x:39.8,  y:355.1, w:64.3, h:115.6}); // desk, bottom-left
+    boxes.push({x:129.2, y:479.6, w:83.0, h:7.2});   // strip, bottom-centre
+    boxes.push({x:600.4, y:53.2,  w:83.0, h:7.2});   // strip, top-right
+    boxes.forEach(function(b){
+      svg.appendChild(el("rect", {x:b.x, y:b.y, width:b.w, height:b.h, fill:LIGHT, stroke:"#000", "stroke-width":STROKE}));
+    });
+    // seat numbers
+    SEATS.forEach(function(s){ svg.appendChild(addText(s.x + 2.8, s.y + 9.6, s.num, 7)); });
+    // header
+    var header = addText(228.4, 35.1, "Seating Plan :", 14);
+    header.setAttribute("id", "headerText");
+    svg.appendChild(header);
+    // chromebook heading + list labels
+    svg.appendChild(addText(276.9, 203.3, "Chromebook Assignments", 14, "bold"));
+    LT.forEach(function(lt){ svg.appendChild(addText(276.9, lt.top + 10.2, lt.label + " -", 14)); });
+    // name slots (drawn on top)
+    SEATS.forEach(function(s){
+      svg.appendChild(el("text", {id:"nm-"+s.id, "text-anchor":"middle", "font-size":13, fill:"#000"}));
+    });
+    LT.forEach(function(lt){
+      svg.appendChild(el("text", {id:"nm-lt"+lt.num, "text-anchor":"start", "font-size":14, fill:"#000"}));
+    });
+  })();
+
+  /* ---------- state ---------- */
+  var STORE_KEY = "room34-seating-plan-v1";
+  var state = {year:"", seats:{}, lts:{}};
+
+  function save(){
+    try { localStorage.setItem(STORE_KEY, JSON.stringify(state)); } catch(e){}
+  }
+  function load(){
+    try {
+      var raw = localStorage.getItem(STORE_KEY);
+      if (!raw) return;
+      var s = JSON.parse(raw);
+      state.year = s.year || "";
+      state.seats = s.seats || {};
+      state.lts = s.lts || {};
+    } catch(e){}
+  }
+
+  /* ---------- renderers ---------- */
+  function yearLabel(){
+    var v = (state.year||"").trim();
+    if (!v) return "";
+    return /^year\b/i.test(v) ? v : "Year " + v;
+  }
+  function renderHeader(){
+    document.getElementById("headerText").textContent =
+      yearLabel() ? ("Seating Plan : " + yearLabel()) : "Seating Plan :";
+  }
+  function renderSeat(s){
+    var t = document.getElementById("nm-" + s.id);
+    t.textContent = "";
+    var name = (state.seats[s.id] || "").trim();
+    if (!name) return;
+    // keep clear of the number in the top-left corner
+    var regionTop = s.y + 10, regionH = s.h - 14, regionW = s.w - 8;
+    var fit = fitText(name, regionW, regionH, 13, 5, false);
+    t.setAttribute("font-size", fit.size);
+    var lh = fit.size * 1.16;
+    var blockH = fit.lines.length * lh;
+    var top = regionTop + (regionH - blockH) / 2;
+    fit.lines.forEach(function(ln, i){
+      var ts = el("tspan", {x: s.x + s.w/2, y: top + i*lh + fit.size*0.82});
+      ts.textContent = ln;
+      t.appendChild(ts);
+    });
+  }
+  function renderLt(lt){
+    var t = document.getElementById("nm-lt" + lt.num);
+    t.textContent = "";
+    var name = (state.lts[lt.num] || "").trim();
+    if (!name) return;
+    var fit = fitText(name, 280, 16, 14, 6, true);
+    t.setAttribute("font-size", fit.size);
+    t.setAttribute("x", 327);
+    t.setAttribute("y", lt.top + 10.2);
+    t.textContent = fit.lines[0];
+  }
+
+  /* ---------- form ---------- */
+  var fieldsEl = document.getElementById("fields");
+  function addGroup(title, items){
+    var fs = document.createElement("fieldset");
+    var lg = document.createElement("legend");
+    lg.textContent = title;
+    fs.appendChild(lg);
+    var grid = document.createElement("div");
+    grid.className = "grid";
+    items.forEach(function(it){
+      var lab = document.createElement("label");
+      lab.className = "field";
+      var sp = document.createElement("span");
+      sp.textContent = it.label;
+      var inp = document.createElement("input");
+      inp.type = "text"; inp.autocomplete = "off"; inp.spellcheck = false;
+      inp.value = it.value || "";
+      inp.addEventListener("input", function(){
+        it.set(inp.value);
+        save();
+      });
+      it._input = inp;
+      lab.appendChild(sp); lab.appendChild(inp);
+      grid.appendChild(lab);
+    });
+    fs.appendChild(grid);
+    fieldsEl.appendChild(fs);
+  }
+
+  function buildForm(){
+    addGroup("Seats \u2014 top row (\u2116 1\u20137)", SEATS.filter(function(s){return s.area==="Top row";}).map(function(s){
+      return {label:s.num, value:state.seats[s.id]||"", set:function(v){ state.seats[s.id]=v; renderSeat(s); }};
+    }));
+    addGroup("Seats \u2014 right column (\u2116 8\u201311)", SEATS.filter(function(s){return s.area==="Right column";}).map(function(s){
+      return {label:s.num, value:state.seats[s.id]||"", set:function(v){ state.seats[s.id]=v; renderSeat(s); }};
+    }));
+    addGroup("Chromebook assignments", LT.map(function(lt){
+      return {label:lt.label, value:state.lts[lt.num]||"", set:function(v){ state.lts[lt.num]=v; renderLt(lt); }};
+    }));
+  }
+
+  function setInputsFromState(){
+    var all = fieldsEl.querySelectorAll('input[type="text"]');
+    // inputs were created in a known order: 7 top, 4 right, 12 chromebook
+    var idx = 0;
+    SEATS.filter(function(s){return s.area==="Top row";}).forEach(function(s){ all[idx++].value = state.seats[s.id]||""; });
+    SEATS.filter(function(s){return s.area==="Right column";}).forEach(function(s){ all[idx++].value = state.seats[s.id]||""; });
+    LT.forEach(function(lt){ all[idx++].value = state.lts[lt.num]||""; });
+    document.getElementById("year").value = state.year || "";
+  }
+
+  function renderAll(){
+    renderHeader();
+    SEATS.forEach(renderSeat);
+    LT.forEach(renderLt);
+  }
+
+  /* ---------- toast ---------- */
+  var toastEl = document.getElementById("toast");
+  var toastTimer = null;
+  function toast(msg){
+    toastEl.textContent = msg;
+    toastEl.classList.add("show");
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function(){ toastEl.classList.remove("show"); }, 2600);
+  }
+
+  /* ---------- CSV import ---------- */
+  function detectDelim(text){
+    var firstLine = text.split(/\r?\n/)[0] || "";
+    var counts = {",":0, ";":0, "\t":0};
+    for (var i=0;i<firstLine.length;i++){ if (counts[firstLine[i]] !== undefined) counts[firstLine[i]]++; }
+    var best = ",", bestN = -1;
+    Object.keys(counts).forEach(function(k){ if (counts[k] > bestN){ bestN = counts[k]; best = k; } });
+    return best;
+  }
+  function parseCSV(text, delim){
+    text = text.replace(/^\uFEFF/, "");
+    var rows = [], row = [], field = "", inQuotes = false;
+    for (var i=0;i<text.length;i++){
+      var c = text[i];
+      if (inQuotes){
+        if (c === '"'){
+          if (text[i+1] === '"'){ field += '"'; i++; }
+          else inQuotes = false;
+        } else field += c;
+      } else {
+        if (c === '"') inQuotes = true;
+        else if (c === delim){ row.push(field); field = ""; }
+        else if (c === "\n"){ row.push(field); rows.push(row); row = []; field = ""; }
+        else if (c === "\r"){ /* ignore */ }
+        else field += c;
+      }
+    }
+    if (field.length || row.length){ row.push(field); rows.push(row); }
+    return rows.filter(function(r){ return r.length && r.some(function(c){ return c.trim() !== ""; }); });
+  }
+  function extractNames(rows){
+    if (!rows.length) return [];
+    var header = rows[0].map(function(h){ return h.trim().toLowerCase(); });
+    var looksHeader = header.some(function(h){
+      return /name|surname|first|last|given|family|student|pupil/.test(h);
+    });
+    function find(cands){
+      for (var i=0;i<header.length;i++){
+        for (var c=0;c<cands.length;c++){ if (header[i] === cands[c]) return i; }
+      }
+      return -1;
+    }
+    var fullIdx = -1, firstIdx = -1, surIdx = -1, dataStart = 0;
+    if (looksHeader){
+      dataStart = 1;
+      fullIdx  = find(["full name","fullname","student name","pupil name","name (full)","full"]);
+      firstIdx = find(["first name","firstname","first","given name","given","forename","name","student","pupil"]);
+      surIdx   = find(["surname","last name","lastname","last","family name","family"]);
+    } else {
+      firstIdx = 0; surIdx = 1;
+    }
+    var out = [];
+    for (var r = dataStart; r < rows.length; r++){
+      var cells = rows[r], nm = "";
+      if (fullIdx >= 0){ nm = (cells[fullIdx] || "").trim(); }
+      else {
+        var f = firstIdx >= 0 ? (cells[firstIdx] || "").trim() : "";
+        var s = surIdx   >= 0 ? (cells[surIdx]   || "").trim() : "";
+        nm = (f + " " + s).trim();
+      }
+      if (nm) out.push(nm);
+    }
+    return out;
+  }
+  function applyImport(names, mode){
+    var queue = [];
+    if (mode === "chromebooks"){
+      LT.forEach(function(lt){ queue.push({k:"lt", v:lt}); });
+    } else if (mode === "seats"){
+      SEATS.forEach(function(s){ queue.push({k:"seat", v:s}); });
+    } else {
+      SEATS.forEach(function(s){ queue.push({k:"seat", v:s}); });
+      LT.forEach(function(lt){ queue.push({k:"lt", v:lt}); });
+    }
+    // clear the target slots first, then assign in order
+    queue.forEach(function(q){
+      if (q.k === "seat") state.seats[q.v.id] = "";
+      else state.lts[q.v.num] = "";
+    });
+    var used = 0;
+    names.forEach(function(nm, i){
+      if (i >= queue.length) return;
+      var q = queue[i];
+      if (q.k === "seat") state.seats[q.v.id] = nm;
+      else state.lts[q.v.num] = nm;
+      used++;
+    });
+    save();
+    setInputsFromState();
+    renderAll();
+    toast("Imported " + used + " name" + (used === 1 ? "" : "s") +
+          (names.length > queue.length ? " (only " + queue.length + " slots available)" : ""));
+  }
+
+  var csvInput = document.getElementById("csv");
+  var csvFileName = document.getElementById("csvFileName");
+  csvInput.addEventListener("change", function(){
+    var f = csvInput.files && csvInput.files[0];
+    if (!f) return;
+    csvFileName.textContent = f.name;
+    var reader = new FileReader();
+    reader.onload = function(){
+      try {
+        var text = String(reader.result);
+        var names = extractNames(parseCSV(text, detectDelim(text)));
+        if (!names.length){ toast("No names found in that CSV."); }
+        else { applyImport(names, document.getElementById("csvMode").value); }
+      } catch (e){ toast("Sorry, that CSV couldn't be read."); }
+      csvInput.value = "";
+    };
+    reader.onerror = function(){ toast("Sorry, that file couldn't be read."); csvInput.value = ""; };
+    reader.readAsText(f);
+  });
+
+  // sample CSV download
+  document.getElementById("sample").setAttribute("href",
+    "data:text/csv;charset=utf-8," +
+    encodeURIComponent("Name,Surname\nAlex,Smith\nPriya,Patel\nJordan,Lee\nSam,Okafor\n"));
+
+  /* ---------- wire up ---------- */
+  load();
+  buildForm();
+  setInputsFromState();
+  renderAll();
+
+  var yearInput = document.getElementById("year");
+  yearInput.addEventListener("input", function(){
+    state.year = yearInput.value;
+    renderHeader();
+    save();
+  });
+
+  document.getElementById("print").addEventListener("click", function(){ window.print(); });
+
+  document.getElementById("reset").addEventListener("click", function(){
+    if (!confirm("Clear all names and the year group?")) return;
+    state = {year:"", seats:{}, lts:{}};
+    setInputsFromState();
+    renderAll();
+    save();
+  });
+})();
+</script>
+</body>
+</html>
