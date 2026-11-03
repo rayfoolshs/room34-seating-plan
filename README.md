@@ -6,6 +6,8 @@ template and lets you fill it in live, then print or save it as a PDF.
 Open **`index.html`** in any browser (double-click it). No install, no server,
 no internet connection required.
 
+**Live version (GitHub Pages):** https://rayfoolshs.github.io/room34-seating-plan/
+
 Current version: **1.0.0** (see [`VERSION`](VERSION) and [`CHANGELOG.md`](CHANGELOG.md)).
 
 ---
